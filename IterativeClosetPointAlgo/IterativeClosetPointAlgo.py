@@ -1,5 +1,8 @@
 
+import sys
+sys.path.insert(1, '../Levenberg-Marquardt-Algorithm')
 
+import LMA
 
 
 
