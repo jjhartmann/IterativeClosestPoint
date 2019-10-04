@@ -5,6 +5,13 @@ VisualStudioVersion = 16.0.29324.140
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{888888A0-9F3D-457C-B088-3A5042F75D52}") = "IterativeClosetPointAlgo", "IterativeClosetPointAlgo\IterativeClosetPointAlgo.pyproj", "{57FE27E5-4320-4A67-A066-7DCD6682FE2A}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "LMA", "LMA", "{23F07502-EA08-4008-AF16-D6B0C6426E87}"
+	ProjectSection(SolutionItems) = preProject
+		Levenberg-Marquardt-Algorithm\LMA.py = Levenberg-Marquardt-Algorithm\LMA.py
+		Levenberg-Marquardt-Algorithm\ransac.py = Levenberg-Marquardt-Algorithm\ransac.py
+		Levenberg-Marquardt-Algorithm\solving_transformations.py = Levenberg-Marquardt-Algorithm\solving_transformations.py
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
