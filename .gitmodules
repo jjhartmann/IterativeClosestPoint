@@ -1,0 +1,3 @@
+[submodule "Levenberg-Marquardt-Algorithm"]
+	path = Levenberg-Marquardt-Algorithm
+	url = https://github.com/jjhartmann/Levenberg-Marquardt-Algorithm.git
