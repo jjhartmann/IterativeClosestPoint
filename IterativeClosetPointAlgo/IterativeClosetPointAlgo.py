@@ -3,99 +3,76 @@ import sys
 sys.path.insert(1, '../Levenberg-Marquardt-Algorithm')
 import LMA
 
-
-
 from array import array
 from math import sin, pi
 from random import random
-
-import glfw
-import OpenGL.GL as gl
-import imgui
-from imgui.integrations.glfw import GlfwRenderer
-from time import time
+import numpy as np
 
 
-C = .01
-L = int(pi * 2 * 100)
+
+def transform(params, pointset, noise=False, mu=0, sigma=10):
+    """
+    Transforma a point set into another corrdinate system
+    :param params: contains rotation [0:3] and translation [3:6]
+    :param pointset: a set of points to transform
+    :param mu: variation 
+    :param sigma:
+    :return:
+    """
+
+    thetas = np.array(params[0:3]) * math.pi/180
+    t = params[3:6]
+
+    Rx = np.eye(3, 3)
+    Rx[1, 1] = np.cos(thetas[0])
+    Rx[1, 2] = -np.sin(thetas[0])
+    Rx[2, 1] = np.sin(thetas[0])
+    Rx[2, 2] = np.cos(thetas[0])
+
+    Ry = np.eye(3, 3)
+    Ry[0, 0] = np.cos(thetas[1])
+    Ry[2, 0] = -np.sin(thetas[1])
+    Ry[0, 2] = np.sin(thetas[1])
+    Ry[2, 2] = np.cos(thetas[1])
+
+    Rz = np.eye(3, 3)
+    Rz[0, 0] = np.cos(thetas[2])
+    Rz[0, 1] = -np.sin(thetas[2])
+    Rz[1, 0] = np.sin(thetas[2])
+    Rz[1, 1] = np.cos(thetas[2])
+
+    R = Rz @ Ry @ Rx
+
+    transformed_points = np.empty(shape=pointset.shape, dtype=np.float)
+    if noise:
+        point_s = pointset + np.random.normal(mu, sigma, pointset.shape)
+        transformed_points = point_s.transpose() @ R.transpose()
+    else:
+        transformed_points = pointset.transpose() @ R.transpose()
+
+    transformed_points[:, 0] += t[0]
+    transformed_points[:, 1] += t[1]
+    transformed_points[:, 2] += t[2]
+
+    return transformed_points.transpose(), R, t
+
+def ICP(M, S):
+    """ Perform Simple Point Set Registration
+    :param M: Base Point Set
+    :param S: Point Set to match
+    :return: params the best transforms S to match M
+    """
+    pass
+
+
+
 
 
 def main():
-    window = impl_glfw_init()
-    imgui.create_context()
-    impl = GlfwRenderer(window)
-
-    plot_values = array('f', [sin(x * C) for x in range(L)])
-    histogram_values = array('f', [random() for _ in range(20)])
-
-    while not glfw.window_should_close(window):
-        glfw.poll_events()
-        impl.process_inputs()
-
-        imgui.new_frame()
-
-        imgui.begin("Plot example")
-        imgui.plot_lines(
-            "Sin(t)",
-            plot_values,
-            overlay_text="SIN() over time",
-            # offset by one item every milisecond, plot values
-            # buffer its end wraps around
-            values_offset=int(time() * 100) % L,
-            # 0=autoscale => (0, 50) = (autoscale width, 50px height)
-            graph_size=(0, 50),
-        )
-
-        imgui.plot_histogram(
-            "histogram(random())",
-            histogram_values,
-            overlay_text="random histogram",
-            # offset by one item every milisecond, plot values
-            # buffer its end wraps around
-            graph_size=(0, 50),
-        )
+    
 
 
-        imgui.end()
 
-        gl.glClearColor(1., 1., 1., 1)
-        gl.glClear(gl.GL_COLOR_BUFFER_BIT)
-
-        imgui.render()
-        impl.render(imgui.get_draw_data())
-        glfw.swap_buffers(window)
-
-    impl.shutdown()
-    glfw.terminate()
-
-
-def impl_glfw_init():
-    width, height = 1280, 720
-    window_name = "minimal ImGui/GLFW3 example"
-
-    if not glfw.init():
-        print("Could not initialize OpenGL context")
-        exit(1)
-
-    # OS X supports only forward-compatible core profiles from 3.2
-    glfw.window_hint(glfw.CONTEXT_VERSION_MAJOR, 3)
-    glfw.window_hint(glfw.CONTEXT_VERSION_MINOR, 3)
-    glfw.window_hint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
-
-    glfw.window_hint(glfw.OPENGL_FORWARD_COMPAT, gl.GL_TRUE)
-
-    # Create a windowed mode window and its OpenGL context
-    window = glfw.create_window(
-        int(width), int(height), window_name, None, None
-    )
-    glfw.make_context_current(window)
-
-    if not window:
-        glfw.terminate()
-        print("Could not initialize Window")
-        exit(1)
-
-    return window
 
 
 
