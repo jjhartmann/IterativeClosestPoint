@@ -7,7 +7,7 @@ from array import array
 from math import sin, pi
 from random import random
 import numpy as np
-
+import math
 
 
 def transform(params, pointset, noise=False, mu=0, sigma=10):
@@ -56,13 +56,80 @@ def transform(params, pointset, noise=False, mu=0, sigma=10):
 
     return transformed_points.transpose(), R, t
 
+
+def icp_error_function(params, args):
+    """
+    Simple error function to determine error between pointsets
+    """
+
+    # Pointsets
+    M, S = args
+
+    # Transform point set
+    S_T, R, t = transform(params, S)
+
+    tmp = M - S_T
+    l2Error = np.linalg.norm(tmp.transpose(), axis=1)
+
+    # flatten arays
+    dataShape = M.shape
+    nData = dataShape[0] * dataShape[1]
+
+    M_hat = M.reshape(1, nData)[0]
+    S_That = S_T.reshape(1, nData)[0]
+
+    absError = np.abs(M_hat - S_That)
+
+    return l2Error
+
+
 def ICP(M, S):
     """ Perform Simple Point Set Registration
     :param M: Base Point Set
     :param S: Point Set to match
     :return: params the best transforms S to match M
     """
-    pass
+    params = np.zeros(6) # np.random.rand(6) * 50
+    registered = False
+    while not registered:
+        
+        X = np.zeros(S.shape)
+        S_T, _, _ = transform(params, S)
+        S_T = S_T.transpose()
+
+        # Iterate through arrays
+        for i, s_i in enumerate(S_T):
+            
+            minDist = 100000
+            p = np.zeros(3)
+
+            # Find closest point
+            for m_i in M.transpose():
+                d = np.linalg.norm(m_i - s_i)
+                if d < minDist:
+                    p = m_i
+                    minDist = d
+
+            # Add pair to array
+            X[:, i] = p
+
+
+        # Update params using LMA
+        rmserror, params, reason = LMA.LM(
+            params, 
+            (X, S),
+            icp_error_function,
+            lambda_multiplier=10,  
+            kmax=100, 
+            eps=1e-3)
+
+
+        if rmserror < 1e-4:
+            registered = True
+
+
+
+    return params
 
 
 
@@ -70,9 +137,20 @@ def ICP(M, S):
 
 def main():
     
+    # Generate Model Points
+    model_points = ((2 * np.random.rand(3, 20)) - 1) * 500
+
+    # Ground truth transformation parameters
+    #           x    y   z
+    R_params = [2, 3, 7]
+    t_params = [-5, -7, 4]
+    transform_parms =  R_params + t_params
+    transfomed_points, R, t = transform(transform_parms, model_points, False, 0, 5)
 
 
+    results = ICP(model_points, transfomed_points)
 
+    print("END")
 
 
 
