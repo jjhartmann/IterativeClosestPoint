@@ -10,7 +10,7 @@ import numpy as np
 import math
 
 
-def transform(params, pointset, noise=False, mu=0, sigma=10):
+def transform(params, pointset, invert=False, noise=False, mu=0, sigma=10):
     """
     Transforma a point set into another corrdinate system
     :param params: contains rotation [0:3] and translation [3:6]
@@ -43,12 +43,16 @@ def transform(params, pointset, noise=False, mu=0, sigma=10):
 
     R = Rz @ Ry @ Rx
 
+    if invert:
+        R = R.transpose()
+        t = np.multiply(-1, t).transpose() @ R 
+
     transformed_points = np.empty(shape=pointset.shape, dtype=np.float)
     if noise:
         point_s = pointset + np.random.normal(mu, sigma, pointset.shape)
-        transformed_points = point_s.transpose() @ R.transpose()
+        transformed_points = point_s.transpose() @ R
     else:
-        transformed_points = pointset.transpose() @ R.transpose()
+        transformed_points = pointset.transpose() @ R
 
     transformed_points[:, 0] += t[0]
     transformed_points[:, 1] += t[1]
@@ -66,7 +70,7 @@ def icp_error_function(params, args):
     M, S = args
 
     # Transform point set
-    S_T, R, t = transform(params, S)
+    S_T, R, t = transform(params, S, invert=True)
 
     tmp = M - S_T
     l2Error = np.linalg.norm(tmp.transpose(), axis=1)
@@ -95,7 +99,7 @@ def ICP(M, S, verbose = False):
     while not registered:
         
         X = np.zeros(S.shape)
-        S_T, _, _ = transform(params, S)
+        S_T, _, _ = transform(params, S, invert=True)
         S_T = S_T.transpose()
 
         # Iterate through arrays
@@ -127,7 +131,7 @@ def ICP(M, S, verbose = False):
         if verbose:
             print("{} RMS: {} Params: {}".format(count, rmserror, params))
 
-        if rmserror < 1e-4:
+        if rmserror < 1e-2:
             registered = True
 
         count = count + 1
@@ -145,16 +149,15 @@ def main():
 
     # Ground truth transformation parameters
     #           x    y   z
-    R_params = [2, 3, 7]
-    t_params = [-5, -7, 4]
+    R_params = [7, 2, 8]
+    t_params = [-5, -9, 10]
     transform_parms =  R_params + t_params
     transfomed_points, R, t = transform(transform_parms, model_points)
 
 
     # Check if transform works
-    invert_params = np.multiply(-1, transform_parms)
-    invert_points, R, t =  transform(invert_params, transfomed_points)
-    if model_points == invert_points:
+    invert_points, R, t =  transform(transform_parms, transfomed_points, invert = True)
+    if np.array_equal(model_points, invert_points):
         print("Test Passed")
 
     results = ICP(model_points, transfomed_points, verbose=True)
