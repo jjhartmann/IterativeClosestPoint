@@ -18,6 +18,8 @@ def transform(params, pointset, invert=False, noise=False, mu=0, sigma=10):
     :param mu: variation 
     :param sigma:
     :return:
+
+    See: https://math.stackexchange.com/questions/1234948/inverse-of-a-rigid-transformation
     """
 
     thetas = np.array(params[0:3]) * math.pi/180
@@ -145,14 +147,14 @@ def ICP(M, S, verbose = False):
 def main():
     
     # Generate Model Points
-    model_points = ((2 * np.random.rand(3, 10)) - 1) * 500
+    model_points = ((2 * np.random.rand(3, 100)) - 1) * 500
 
     # Ground truth transformation parameters
     #           x    y   z
-    R_params = [7, 2, 8]
+    R_params = [7, 20, 8]
     t_params = [-5, -9, 10]
     transform_parms =  R_params + t_params
-    transfomed_points, R, t = transform(transform_parms, model_points)
+    transfomed_points, R, t = transform(transform_parms, model_points, noise = True, mu = 0, sigma = 10)
 
 
     # Check if transform works
