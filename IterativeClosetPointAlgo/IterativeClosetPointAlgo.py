@@ -9,6 +9,78 @@ from random import random
 import numpy as np
 import math
 
+from mpl_toolkits.mplot3d import Axes3D 
+from scipy.misc import imshow
+import matplotlib.pyplot as plt
+import pptk 
+
+############################################################################
+# DRAW UTIL
+############################################################################
+
+def Plot3D(X, marker='o'):
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+
+    ax.scatter(X[0], X[1], X[2], marker=marker)
+
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
+
+    plt.show()
+
+def ComparePointCloud3D(M, S, marker=['o', '^']):
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+
+    ax.scatter(M[0], M[1], M[2], marker = marker[0])
+    ax.scatter(S[0], S[1], S[2], marker = marker[1])
+
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
+
+    plt.show()
+
+
+
+def StartPlot(M, S, marker=['o', '^']):
+    StartPlot.v = pptk.viewer((M, S))
+    
+
+    attr1 = np.zeros(np.max(M.shape))
+    attr2 = np.ones(np.max(S.shape))
+    attr = np.concatenate((attr1, attr2), axis=None)
+    
+    StartPlot.v.attributes(attr)
+    StartPlot.v.set(point_size=5)
+
+    StartPlot.counter = 0
+
+
+def Update3DCompare(M, S, marker=['o', '^']):
+
+    StartPlot.counter = StartPlot.counter + 1
+    if StartPlot.counter % 5 > 0:
+        return
+
+    points = np.concatenate((M, S.T), axis=1)
+
+    attr1 = np.zeros(np.max(M.shape))
+    attr2 = np.ones(np.max(S.shape))
+    attr = np.concatenate((attr1, attr2), axis=None)
+
+    positions = np.asarray(points, dtype=np.float32).reshape(-1, 3)
+    StartPlot.v.__load(positions)
+
+
+
+
+
+############################################################################
+############################################################################
+
 
 def transform(params, pointset, invert=False, noise=False, mu=0, sigma=10):
     """
@@ -95,6 +167,10 @@ def ICP(M, S, verbose = False):
     :param S: Point Set to match
     :return: params the best transforms S to match M
     """
+
+    if verbose:
+        StartPlot(M, S)
+
     params = np.zeros(6) # np.random.rand(6) * 50
     registered = False
     count = 0
@@ -131,6 +207,7 @@ def ICP(M, S, verbose = False):
             eps=1e-3)
 
         if verbose:
+            Update3DCompare(M, S_T)
             print("{} RMS: {} Params: {}".format(count, rmserror, params))
 
         if rmserror < 1e-2:
@@ -143,7 +220,6 @@ def ICP(M, S, verbose = False):
 
 
 
-
 def main():
     
     # Generate Model Points
@@ -151,18 +227,39 @@ def main():
 
     # Ground truth transformation parameters
     #           x    y   z
-    R_params = [7, 20, 8]
-    t_params = [-5, -9, 10]
+    R_params = [30, 20, 8]
+    t_params = [3,-10,2]#[-50, -90, 100]
     transform_parms =  R_params + t_params
-    transfomed_points, R, t = transform(transform_parms, model_points, noise = True, mu = 0, sigma = 10)
+    transfomed_points, R, t = transform(transform_parms, model_points, noise = False, mu = 0, sigma = 10)
 
+    # Visualizat Pointsets
+    #ComparePointCloud3D(model_points, transfomed_points)
+
+
+    #v = pptk.viewer((model_points, transfomed_points))
+    
+
+    #attr1 = np.zeros(np.max(model_points.shape))
+    #attr2 = np.ones(np.max(transfomed_points.shape))
+    #attr = np.concatenate((attr1, attr2), axis=None)
+    
+    #v.attributes(attr)
+    #v.set(point_size=5)
+    #v.wait()
 
     # Check if transform works
     invert_points, R, t =  transform(transform_parms, transfomed_points, invert = True)
     if np.array_equal(model_points, invert_points):
         print("Test Passed")
 
+
+    # Optimize Transform Params
     results = ICP(model_points, transfomed_points, verbose=True)
+
+    # Check transfomed points
+    result_points, _, _ = transform(results, transfomed_points, invert=True)
+    ComparePointCloud3D(model_points, result_points)
+
 
     print("END")
 
