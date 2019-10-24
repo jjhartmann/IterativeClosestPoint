@@ -83,7 +83,7 @@ def icp_error_function(params, args):
     return l2Error
 
 
-def ICP(M, S):
+def ICP(M, S, verbose = False):
     """ Perform Simple Point Set Registration
     :param M: Base Point Set
     :param S: Point Set to match
@@ -91,6 +91,7 @@ def ICP(M, S):
     """
     params = np.zeros(6) # np.random.rand(6) * 50
     registered = False
+    count = 0
     while not registered:
         
         X = np.zeros(S.shape)
@@ -123,11 +124,13 @@ def ICP(M, S):
             kmax=100, 
             eps=1e-3)
 
+        if verbose:
+            print("{} RMS: {} Params: {}".format(count, rmserror, params))
 
         if rmserror < 1e-4:
             registered = True
 
-
+        count = count + 1
 
     return params
 
@@ -138,17 +141,23 @@ def ICP(M, S):
 def main():
     
     # Generate Model Points
-    model_points = ((2 * np.random.rand(3, 20)) - 1) * 500
+    model_points = ((2 * np.random.rand(3, 10)) - 1) * 500
 
     # Ground truth transformation parameters
     #           x    y   z
     R_params = [2, 3, 7]
     t_params = [-5, -7, 4]
     transform_parms =  R_params + t_params
-    transfomed_points, R, t = transform(transform_parms, model_points, False, 0, 5)
+    transfomed_points, R, t = transform(transform_parms, model_points)
 
 
-    results = ICP(model_points, transfomed_points)
+    # Check if transform works
+    invert_params = np.multiply(-1, transform_parms)
+    invert_points, R, t =  transform(invert_params, transfomed_points)
+    if model_points == invert_points:
+        print("Test Passed")
+
+    results = ICP(model_points, transfomed_points, verbose=True)
 
     print("END")
 
