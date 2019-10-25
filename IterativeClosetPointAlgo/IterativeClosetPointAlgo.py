@@ -258,9 +258,74 @@ def TestICP():
     #ComparePointCloud3D(model_points, result_points)
 
 
-def main():
-    TestICP()
+
+def DeterministicAnnealingUsingSinkhornTest(size = (5,5)):
+    """
+    Deterministic Annealing Test 
+    See: Gold, S., Rangarajan, A., Lu, C. P., Pappu, S., & Mjolsness, E. (1998). 
+    New algorithms for 2D and 3D point matching: Pose estimation and correspondence. 
+    Pattern Recognition, 31(8), 1019–1031. https://doi.org/10.1016/S0031-3203(98)80010-1
+
+    Page 10.
+
+    Result is a a doubly stochastic matrix
+    See: https://en.wikipedia.org/wiki/Doubly_stochastic_matrix
+    """
+    rtol = 1e-06
+    atol = 1e-03
     
+    np.set_printoptions(precision=2)
+    np.set_printoptions(suppress=True)
+
+    Q = np.random.rand(size[0], size[1])
+    M = np.zeros(size)
+
+    B = 1
+    Bf = 1.1
+
+    while B < 500:
+        #Update M using softmax
+        for (i,j), q in np.ndenumerate(Q):
+            M[i,j] = np.exp(B * q)
+
+        # Begin Singhorns Method
+        M0 = np.copy(M)
+        M1 = np.zeros(size)
+        while not np.allclose(M0, M1, atol=atol):
+            # Update M1 with M0 (Row Normalization)
+            for i, row in enumerate(M0):
+                # Sum row
+                row_sum = 0
+                for el in row:
+                    row_sum = row_sum + el
+                # Update M1
+                for j, el in enumerate(row):
+                    M1[i, j] = el / row_sum
+            # Update M0 with M1 (Col Normalization)
+            for j, col in enumerate(M1.T):
+                # Sum col
+                col_sum = 0
+                for el in col:
+                    col_sum = col_sum + el
+                # Update M0
+                for i, el in enumerate(col):
+                    M0[i, j] = el / col_sum
+
+
+        # Typically we would change Q here based on some output from the calculation in ICP
+        # Slowly increasing B to get stronger and stronger correspondance between two point sets
+
+        print("B: {}  \n{}\n".format(B, M0))
+
+        #Increase B
+        B = B * Bf
+
+
+
+def main():
+    #TestICP()
+    
+    DeterministicAnnealingUsingSinkhornTest()
 
     print("END")
 
