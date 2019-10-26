@@ -259,8 +259,39 @@ def TestICP():
 
 
 def main():
-    TestICP()
+
+    # Test regular iterative closest point (ICP)
+    #TestICP()
     
+
+    """
+    Test Deterministic Annealing
+    Gold, S., Rangarajan, A., Lu, C. P., Pappu, S., & Mjolsness, E. (1998). 
+    New algorithms for 2D and 3D point matching: Pose estimation and correspondence. 
+    Pattern Recognition, 31(8), 1019–1031. https://doi.org/10.1016/S0031-3203(98)80010-1
+    """
+
+    M = np.zeros(10)
+    Q = np.random.rand(10)
+
+
+    B = 1
+    while B < 1000:
+        
+        q_sum = 0
+        for q in Q:
+            q_sum = q_sum + math.exp(B * q)
+
+        for i, q in enumerate(Q):
+            M[i] = math.exp(B * q) / q_sum
+
+        B = B * 2
+        print("{} M: {} ".format(B, M))
+
+    for i, m in enumerate(M):
+        if m >= 0.99:
+            print("Index: {} Max: {}".format(i, Q[i]))
+
 
     print("END")
 
