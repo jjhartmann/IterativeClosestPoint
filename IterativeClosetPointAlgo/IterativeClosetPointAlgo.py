@@ -328,7 +328,7 @@ def RPM3D(M, S, B0=0.01, Bf=1.01, Bmax = 500, gamma0=1e-03, gammaf=1.2, maxIter0
             (M, S, MMatrix),
             rpm2D_cost_function,
             lambda_multiplier=10,  
-            kmax=100, 
+            kmax=10, 
             eps=1e-3)
         params = params1
 
@@ -443,15 +443,21 @@ def main():
     #TestICP()
     #DeterministicAnnealingUsingSinkhornTest()
 
+    # Get data
+    data = plyfile.PlyData.read('sample.ply')['vertex']
+    xyz = np.c_[data['x'], data['y'], data['z']]
 
-    obj = plyfile.PlyData.read('sample.ply')['vertex']
+    # get subsample
+    idx = np.random.randint(np.max(xyz.shape), size=30)
+    M = xyz[idx,:]
+    M = M.T
 
     # Generate Model Points
-    M = ((2 * np.random.rand(3, 10)) - 1) * 50
+    #M = ((2 * np.random.rand(3, 10)) - 1) * 50
 
     # Ground truth transformation parameters
     #           x    y   z
-    R_params = [-45, 90, -20]
+    R_params = [-40, 40, -20]
     t_params = [30,-100, 90]#[-50, -90, 100]
     transform_parms =  R_params + t_params
     S, R, t = transform(transform_parms, M, noise = False, mu = 0, sigma = 10)
