@@ -8,7 +8,7 @@ from math import sin, pi
 from random import random
 import numpy as np
 import math
-
+import plyfile
 
 
 ############################################################################
@@ -136,6 +136,11 @@ def transform(params, pointset, invert=False, noise=False, mu=0, sigma=10):
     return transformed_points.transpose(), R, t
 
 
+
+############################################################################
+# ICP - Iterative Closest Point
+############################################################################
+
 def icp_error_function(params, args):
     """
     Simple error function to determine error between pointsets
@@ -163,9 +168,6 @@ def icp_error_function(params, args):
 
 
 
-############################################################################
-# ICP - Iterative Closest Point
-############################################################################
 def ICP(M, S, verbose = False):
     """ Perform Simple Point Set Registration
     :param M: Base Point Set
@@ -208,7 +210,7 @@ def ICP(M, S, verbose = False):
             (X, S),
             icp_error_function,
             lambda_multiplier=10,  
-            kmax=100, 
+            kmax=10, 
             eps=1e-3)
 
         if verbose:
@@ -225,6 +227,118 @@ def ICP(M, S, verbose = False):
 
 
 
+############################################################################
+# RPM - Robust Point Matching 
+############################################################################
+
+def rpm2D_cost_function(params, args):
+    """
+    RMP Cost Function
+    
+    cost = sum M sum S(
+    """
+
+    alpha = 1
+
+    # Pointsets
+    M, S, MMatrix = args
+
+    # Transform point set
+    S_hat, R, t = transform(params, S, invert=True)
+
+    # Build array
+    cost = np.zeros(np.max(M.shape) * np.max(S.shape))
+
+    k = 0
+    for (i, j), mm in np.ndenumerate(MMatrix):
+        cost[k] = mm * ((np.linalg.norm(M.T[i]- S_hat.T[j]) - alpha)) # - regularizing term (todo)
+
+        k = k + 1
+
+    return cost
+
+
+
+def RPM3D(M, S, B0=0.01, Bf=1.01, Bmax = 500, gamma0=1e-03, gammaf=1.2, maxIter0=100, alphaTol=1, verbose=False):
+
+    if verbose:
+        np.set_printoptions(precision=2)
+        np.set_printoptions(suppress=True)
+        RPM3D.plot = plot3dClass(M, S)
+
+    # Transformation (Affine) Params
+    params = np.zeros(6)
+    
+    # Match matrix (N x M) matrix based on input (plus slack)
+    MMatrix = np.ones((np.max(M.shape), np.max(S.shape)))
+    Q = np.zeros((np.max(M.shape), np.max(S.shape)))
+
+    # Deterministic Annealing Loop
+    B = B0
+    while B < Bmax:
+
+        # Update Q (deriviative of cost)
+        S_hat, _, _ = transform(params, S, invert=True)
+        for (i, j), val in np.ndenumerate(Q):
+            # dcost/dm_ij = - (|| M_i - T(S_j)||^2 - alpha)
+            # alpha is the tolerence the system has towards outliers (bigger == larger tolerence)
+            if j < np.max(S_hat.shape) and i < np.max(M.shape):
+                Q[i, j] = - (np.linalg.norm(M.T[i] - S_hat.T[j]) - alphaTol) 
+            else:
+                Q[i,j] = -1
+
+                
+        # Update match matrix using sinkhorns
+        for (i,j), q in np.ndenumerate(Q):
+            MMatrix[i,j] = np.exp(B * q)
+
+        M0 = np.copy(MMatrix)
+        M1 = np.zeros(MMatrix.shape)
+        first = True;
+        it = 0
+        while (not np.allclose(M0, M1, atol=0.05) or first) and it < maxIter0:
+            # Update M1 with M0 (Row Normalization)
+            for i, row in enumerate(M0):
+                # Sum row
+                row_sum = 0
+                for el in row:
+                    row_sum = row_sum + el
+                # Update M1
+                for j, el in enumerate(row):
+                    M1[i, j] = el / row_sum
+            # Update M0 with M1 (Col Normalization)
+            for j, col in enumerate(M1.T):
+                # Sum col
+                col_sum = 0
+                for el in col:
+                    col_sum = col_sum + el
+                # Update M0
+                for i, el in enumerate(col):
+                    M0[i, j] = el / col_sum
+            first = False
+            it = it + 1
+
+       
+        # Assign converged matrx to Match matrix
+        MMatrix = M0
+
+        # Use LM to optimize params
+        rmserror, params1, reason = LMA.LM(
+            params, 
+            (M, S, MMatrix),
+            rpm2D_cost_function,
+            lambda_multiplier=10,  
+            kmax=10, 
+            eps=1e-3)
+        params = params1
+
+        if verbose:
+            RPM3D.plot.drawNow(M, S_hat)
+            print("B: {} \nParams: {} \n{}\n".format(B, params, MMatrix))
+
+        # Increase heat (annealing)
+        B = B * Bf
+
 
 ############################################################################
 # Main
@@ -232,7 +346,7 @@ def ICP(M, S, verbose = False):
 
 def TestICP():
     # Generate Model Points
-    model_points = ((2 * np.random.rand(3, 50)) - 1) * 500
+    model_points = ((2 * np.random.rand(3, 10)) - 1) * 500
 
     # Ground truth transformation parameters
     #           x    y   z
@@ -258,39 +372,130 @@ def TestICP():
     #ComparePointCloud3D(model_points, result_points)
 
 
-def main():
-
-    # Test regular iterative closest point (ICP)
-    #TestICP()
-    
-
+def DeterministicAnnealingUsingSinkhornTest(size = (5,5)):
     """
-    Test Deterministic Annealing
-    Gold, S., Rangarajan, A., Lu, C. P., Pappu, S., & Mjolsness, E. (1998). 
+    Deterministic Annealing Test 
+    See: Gold, S., Rangarajan, A., Lu, C. P., Pappu, S., & Mjolsness, E. (1998). 
     New algorithms for 2D and 3D point matching: Pose estimation and correspondence. 
     Pattern Recognition, 31(8), 1019–1031. https://doi.org/10.1016/S0031-3203(98)80010-1
+
+    Page 10.
+
+    Result is a a doubly stochastic matrix
+    See: https://en.wikipedia.org/wiki/Doubly_stochastic_matrix
     """
+    rtol = 1e-06
+    atol = 1e-03
+    np.set_printoptions(precision=2)
+    np.set_printoptions(suppress=True)
 
-    M = np.zeros(10)
-    Q = np.random.rand(10)
-
+    Q = -np.random.rand(size[0], size[1]) * 100
+    M = np.zeros(size)
 
     B = 1
-    while B < 1000:
+    Bf = 1.1
+
+    while B < 500:
+        #Update M using softmax
+        for (i,j), q in np.ndenumerate(Q):
+            M[i,j] = np.exp(B * q)
+
+        # Begin Sinkhorns Method
+        M0 = np.copy(M)
+        M1 = np.zeros(size)
+        while not np.allclose(M0, M1, atol=atol):
+            # Update M1 with M0 (Row Normalization)
+            for i, row in enumerate(M0):
+                # Sum row
+                row_sum = 0
+                for el in row:
+                    row_sum = row_sum + el
+                # Update M1
+                for j, el in enumerate(row):
+                    M1[i, j] = el / row_sum
+            # Update M0 with M1 (Col Normalization)
+            for j, col in enumerate(M1.T):
+                # Sum col
+                col_sum = 0
+                for el in col:
+                    col_sum = col_sum + el
+                # Update M0
+                for i, el in enumerate(col):
+                    M0[i, j] = el / col_sum
+
+
+        # Typically we would change Q here based on some output from the calculation in ICP
+        # Slowly increasing B to get stronger and stronger correspondance between two point sets
+
+        print("B: {}  \n{}\n".format(B, M0))
+
+        #Increase B
+        B = B * Bf
+
+
+
+
+
+
+def main():
+    #TestICP()
+    #DeterministicAnnealingUsingSinkhornTest()
+
+    # Get data
+    data = plyfile.PlyData.read('sample.ply')['vertex']
+    xyz = np.c_[data['x'], data['y'], data['z']]
+
+    # get subsample
+    idx = np.random.randint(np.max(xyz.shape), size=30)
+    M = xyz[idx,:]
+    M = M.T
+
+    # Generate Model Points
+    #M = ((2 * np.random.rand(3, 10)) - 1) * 50
+
+    # Ground truth transformation parameters
+    #           x    y   z
+    R_params = [-40, 40, -20]
+    t_params = [30,-100, 90]#[-50, -90, 100]
+    transform_parms =  R_params + t_params
+    S, R, t = transform(transform_parms, M, noise = False, mu = 0, sigma = 10)
+
+    tmp = S.T
+    np.random.shuffle(tmp)
+    S = tmp.T
+
+    # Optimize Transform Params
+    results = RPM3D(M, S, verbose=True)
+
+
+
+    #"""
+    #Test Deterministic Annealing
+    #Gold, S., Rangarajan, A., Lu, C. P., Pappu, S., & Mjolsness, E. (1998). 
+    #New algorithms for 2D and 3D point matching: Pose estimation and correspondence. 
+    #Pattern Recognition, 31(8), 1019–1031. https://doi.org/10.1016/S0031-3203(98)80010-1
+    #"""
+
+    #M = np.zeros(10)
+    #Q = np.random.rand(10)
+
+
+    #B = 1
+    #while B < 1000:
         
-        q_sum = 0
-        for q in Q:
-            q_sum = q_sum + math.exp(B * q)
+    #    q_sum = 0
+    #    for q in Q:
+    #        q_sum = q_sum + math.exp(B * q)
 
-        for i, q in enumerate(Q):
-            M[i] = math.exp(B * q) / q_sum
+    #    for i, q in enumerate(Q):
+    #        M[i] = math.exp(B * q) / q_sum
 
-        B = B * 2
-        print("{} M: {} ".format(B, M))
+    #    B = B * 2
+    #    print("{} M: {} ".format(B, M))
 
-    for i, m in enumerate(M):
-        if m >= 0.99:
-            print("Index: {} Max: {}".format(i, Q[i]))
+    #for i, m in enumerate(M):
+    #    if m >= 0.99:
+    #        print("Index: {} Max: {}".format(i, Q[i]))
 
 
     print("END")
