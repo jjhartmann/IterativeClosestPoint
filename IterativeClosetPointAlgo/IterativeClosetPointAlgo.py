@@ -259,7 +259,7 @@ def rpm2D_cost_function(params, args):
 
 
 
-def RPM3D(M, S, B0=0.01, Bf=1.01, Bmax = 500, gamma0=1e-03, gammaf=1.2, maxIter0=100, alphaTol=1, verbose=False):
+def RPM3D(M, S, B0=0.01, Bf=1.01, Bmax = 500, gamma0=1e-03, gammaf=1.2, maxIter0=100, alphaTol=1, slackEpislon=0.02, verbose=False):
 
     if verbose:
         np.set_printoptions(precision=2)
@@ -289,11 +289,15 @@ def RPM3D(M, S, B0=0.01, Bf=1.01, Bmax = 500, gamma0=1e-03, gammaf=1.2, maxIter0
 
                 
         # Update match matrix using sinkhorns
-        for (i,j), q in np.ndenumerate(Q):
+        for index, q in np.ndenumerate(Q):
+            i = index[0]
+            j = index[1]
             MMatrix[i,j] = np.exp(B * q)
 
-        M0 = np.copy(MMatrix)
-        M1 = np.zeros(MMatrix.shape)
+        M0 = np.zeros((MMatrix.size[0] + 1, MMatrix.size[1] + 1)) + slackEpislon
+        M1 = np.zeros((MMatrix.size[0] + 1, MMatrix.size[1] + 1)) + slackEpislon
+        M0[0:MMatrix.size[0], 0:MMatrix.size[1]] = MMatrix
+
         first = True;
         it = 0
         while (not np.allclose(M0, M1, atol=0.05) or first) and it < maxIter0:
@@ -320,7 +324,7 @@ def RPM3D(M, S, B0=0.01, Bf=1.01, Bmax = 500, gamma0=1e-03, gammaf=1.2, maxIter0
 
        
         # Assign converged matrx to Match matrix
-        MMatrix = M0
+        MMatrix = M0[0:MMatrix.size[0], 0:MMatrix.size[1]]
 
         # Use LM to optimize params
         rmserror, params1, reason = LMA.LM(
@@ -465,9 +469,9 @@ def TestRPM3D():
 
 def main():
     #TestICP()
-    DeterministicAnnealingUsingSinkhornTest()
+    #DeterministicAnnealingUsingSinkhornTest()
 
-    #TestRPM3D()
+    TestRPM3D()
 
 
 
