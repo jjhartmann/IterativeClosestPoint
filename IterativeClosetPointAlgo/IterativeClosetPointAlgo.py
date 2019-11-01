@@ -385,24 +385,26 @@ def DeterministicAnnealingUsingSinkhornTest(size = (5,5)):
     See: https://en.wikipedia.org/wiki/Doubly_stochastic_matrix
     """
     rtol = 1e-06
-    atol = 1e-03
+    atol = 0.01
     np.set_printoptions(precision=2)
     np.set_printoptions(suppress=True)
 
-    Q = -np.random.rand(size[0], size[1]) * 100
+    Q = -np.random.rand(size[0], size[1]) * 10
     M = np.zeros(size)
 
-    B = 1
-    Bf = 1.1
+    B = 0.2
+    Bf = 1.05
 
-    while B < 500:
+    while B < 5:
         #Update M using softmax
         for (i,j), q in np.ndenumerate(Q):
             M[i,j] = np.exp(B * q)
 
-        # Begin Sinkhorns Method
-        M0 = np.copy(M)
-        M1 = np.zeros(size)
+        # Begin Sinkhorns Method with Slack Variables
+        M0 = np.zeros((size[0] + 1, size[1] + 1)) + 0.001
+        M1 = np.zeros((size[0] + 1, size[1] + 1)) + 0.001
+
+        M0[0:size[0], 0:size[1]] = np.copy(M)
         while not np.allclose(M0, M1, atol=atol):
             # Update M1 with M0 (Row Normalization)
             for i, row in enumerate(M0):
@@ -463,7 +465,7 @@ def TestRPM3D():
 
 def main():
     #TestICP()
-    #DeterministicAnnealingUsingSinkhornTest()
+    DeterministicAnnealingUsingSinkhornTest()
 
     #TestRPM3D()
 
