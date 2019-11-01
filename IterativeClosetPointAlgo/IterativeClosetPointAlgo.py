@@ -433,14 +433,7 @@ def DeterministicAnnealingUsingSinkhornTest(size = (5,5)):
         B = B * Bf
 
 
-
-
-
-
-def main():
-    #TestICP()
-    #DeterministicAnnealingUsingSinkhornTest()
-
+def TestRPM3D():
     # Get data
     data = plyfile.PlyData.read('sample.ply')['vertex']
     xyz = np.c_[data['x'], data['y'], data['z']]
@@ -466,6 +459,13 @@ def main():
 
     # Optimize Transform Params
     results = RPM3D(M, S, verbose=True)
+
+
+def main():
+    #TestICP()
+    #DeterministicAnnealingUsingSinkhornTest()
+
+    #TestRPM3D()
 
 
 
