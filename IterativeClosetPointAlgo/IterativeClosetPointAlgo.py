@@ -259,11 +259,12 @@ def rpm2D_cost_function(params, args):
 
 
 
-def RPM3D(M, S, B0=0.01, Bf=1.01, Bmax = 500, gamma0=1e-03, gammaf=1.2, maxIter0=100, alphaTol=1, slackEpislon=0.02, verbose=False):
+def RPM3D(M, S, B0=0.01, Bf=1.01, Bmax = 10, gamma0=1e-03, gammaf=1.2, maxIter0=10, alphaTol=1, slackEpislon=0.02, lmKmax=15, verbose=False, viz=False):
 
     if verbose:
         np.set_printoptions(precision=2)
         np.set_printoptions(suppress=True)
+    if viz:
         RPM3D.plot = plot3dClass(M, S)
 
     # Transformation (Affine) Params
@@ -282,21 +283,17 @@ def RPM3D(M, S, B0=0.01, Bf=1.01, Bmax = 500, gamma0=1e-03, gammaf=1.2, maxIter0
         for (i, j), val in np.ndenumerate(Q):
             # dcost/dm_ij = - (|| M_i - T(S_j)||^2 - alpha)
             # alpha is the tolerence the system has towards outliers (bigger == larger tolerence)
-            if j < np.max(S_hat.shape) and i < np.max(M.shape):
-                Q[i, j] = - (np.linalg.norm(M.T[i] - S_hat.T[j]) - alphaTol) 
-            else:
-                Q[i,j] = -1
+            Q[i, j] = - (np.linalg.norm(M.T[i] - S_hat.T[j]) - alphaTol) 
+
 
                 
         # Update match matrix using sinkhorns
-        for index, q in np.ndenumerate(Q):
-            i = index[0]
-            j = index[1]
+        for (i, j), q in np.ndenumerate(Q):
             MMatrix[i,j] = np.exp(B * q)
 
-        M0 = np.zeros((MMatrix.size[0] + 1, MMatrix.size[1] + 1)) + slackEpislon
-        M1 = np.zeros((MMatrix.size[0] + 1, MMatrix.size[1] + 1)) + slackEpislon
-        M0[0:MMatrix.size[0], 0:MMatrix.size[1]] = MMatrix
+        M0 = np.zeros((MMatrix.shape[0] + 1, MMatrix.shape[1] + 1)) + slackEpislon
+        M1 = np.zeros((MMatrix.shape[0] + 1, MMatrix.shape[1] + 1)) + slackEpislon
+        M0[0:MMatrix.shape[0], 0:MMatrix.shape[1]] = MMatrix
 
         first = True;
         it = 0
@@ -324,7 +321,7 @@ def RPM3D(M, S, B0=0.01, Bf=1.01, Bmax = 500, gamma0=1e-03, gammaf=1.2, maxIter0
 
        
         # Assign converged matrx to Match matrix
-        MMatrix = M0[0:MMatrix.size[0], 0:MMatrix.size[1]]
+        MMatrix = M0[0:MMatrix.shape[0], 0:MMatrix.shape[1]]
 
         # Use LM to optimize params
         rmserror, params1, reason = LMA.LM(
@@ -332,13 +329,14 @@ def RPM3D(M, S, B0=0.01, Bf=1.01, Bmax = 500, gamma0=1e-03, gammaf=1.2, maxIter0
             (M, S, MMatrix),
             rpm2D_cost_function,
             lambda_multiplier=10,  
-            kmax=10, 
+            kmax=lmKmax, 
             eps=1e-3)
         params = params1
 
-        if verbose:
+        if viz:
             RPM3D.plot.drawNow(M, S_hat)
-            print("B: {} \nParams: {} \n{}\n".format(B, params, MMatrix))
+        if verbose:
+            print("RMS: {} \nB: {} \nParams: {} \n{}\n".format(rmserror, B, params, MMatrix))
 
         # Increase heat (annealing)
         B = B * Bf
@@ -445,7 +443,7 @@ def TestRPM3D():
     xyz = np.c_[data['x'], data['y'], data['z']]
 
     # get subsample
-    idx = np.random.randint(np.max(xyz.shape), size=30)
+    idx = np.random.randint(np.max(xyz.shape), size=20)
     M = xyz[idx,:]
     M = M.T
 
@@ -454,17 +452,23 @@ def TestRPM3D():
 
     # Ground truth transformation parameters
     #           x    y   z
-    R_params = [-40, 40, -20]
-    t_params = [30,-100, 90]#[-50, -90, 100]
+    R_params = [-10, 20, -10]
+    t_params = [30,-20, 10]#[-50, -90, 100]
     transform_parms =  R_params + t_params
-    S, R, t = transform(transform_parms, M, noise = False, mu = 0, sigma = 10)
+    S, R, t = transform(transform_parms, M, noise = False, mu = 0, sigma = 5)
+
+    # Add Random Points to S
+    P = ((2 * np.random.rand(3, 10)) - 1) * 100
+    S = np.concatenate((S, P), axis=1)
 
     tmp = S.T
     np.random.shuffle(tmp)
     S = tmp.T
 
+
+
     # Optimize Transform Params
-    results = RPM3D(M, S, verbose=True)
+    results = RPM3D(M, S, Bf=1.05, verbose=True, viz=True)
 
 
 def main():
