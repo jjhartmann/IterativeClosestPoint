@@ -352,8 +352,8 @@ def TestICP():
 
     # Ground truth transformation parameters
     #           x    y   z
-    R_params = [30, 20, -20]
-    t_params = [30,-100, 90]#[-50, -90, 100]
+    R_params = [10, 15, -10]
+    t_params = [5,-20, 15]#[-50, -90, 100]
     transform_parms =  R_params + t_params
     transfomed_points, R, t = transform(transform_parms, model_points, noise = False, mu = 0, sigma = 10)
 
@@ -443,12 +443,12 @@ def TestRPM3D():
     xyz = np.c_[data['x'], data['y'], data['z']]
 
     # get subsample
-    idx = np.random.randint(np.max(xyz.shape), size=20)
+    idx = np.random.randint(np.max(xyz.shape), size=10)
     M = xyz[idx,:]
     M = M.T
 
     # Generate Model Points
-    #M = ((2 * np.random.rand(3, 10)) - 1) * 50
+    #M = ((2 * np.random.rand(3, 10)) - 1) * 50`
 
     # Ground truth transformation parameters
     #           x    y   z
@@ -458,7 +458,7 @@ def TestRPM3D():
     S, R, t = transform(transform_parms, M, noise = False, mu = 0, sigma = 5)
 
     # Add Random Points to S
-    P = ((2 * np.random.rand(3, 10)) - 1) * 100
+    P = ((2 * np.random.rand(3, 3)) - 1) * 100
     S = np.concatenate((S, P), axis=1)
 
     tmp = S.T
